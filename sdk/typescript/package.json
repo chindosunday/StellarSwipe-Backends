@@ -1,0 +1,54 @@
+{
+  "name": "@stellarswipe/sdk",
+  "version": "1.0.0",
+  "description": "Official TypeScript/JavaScript SDK for StellarSwipe API",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "module": "dist/index.mjs",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "stellar",
+    "stellarswipe",
+    "trading",
+    "copy-trading",
+    "defi",
+    "blockchain",
+    "sdk",
+    "api"
+  ],
+  "author": "StellarSwipe",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stellarswipe/sdk-typescript"
+  },
+  "bugs": {
+    "url": "https://github.com/stellarswipe/sdk-typescript/issues"
+  },
+  "homepage": "https://docs.stellarswipe.com",
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "jest": "^29.5.0",
+    "prettier": "^3.0.0",
+    "ts-jest": "^29.1.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

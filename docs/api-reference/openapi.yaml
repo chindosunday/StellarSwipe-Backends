@@ -1,0 +1,928 @@
+openapi: 3.0.0
+info:
+  title: StellarSwipe API
+  version: 1.0.0
+  description: |
+    Copy trading DApp on Stellar blockchain. Follow top traders, automate trades, and manage your portfolio.
+    
+    ## Authentication
+    All API requests require an API key passed in the `Authorization` header:
+    ```
+    Authorization: Bearer YOUR_API_KEY
+    ```
+    
+    ## Rate Limiting
+    - 1000 requests per hour for authenticated users
+    - Rate limit info returned in headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+    
+    ## Pagination
+    List endpoints support cursor-based pagination using `cursor` and `limit` parameters.
+    
+  contact:
+    email: support@stellarswipe.com
+    url: https://stellarswipe.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.stellarswipe.com
+    description: Production
+  - url: https://api-staging.stellarswipe.com
+    description: Staging
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Signals
+    description: Trading signals from providers
+  - name: Trades
+    description: Trade execution and management
+  - name: Portfolio
+    description: Portfolio management and rebalancing
+
+paths:
+  /signals:
+    get:
+      tags:
+        - Signals
+      summary: List signals
+      description: Get a paginated list of trading signals with optional filters
+      parameters:
+        - name: cursor
+          in: query
+          schema:
+            type: string
+          description: Cursor for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: assetPair
+          in: query
+          schema:
+            type: string
+            example: USDC/XLM
+        - name: providerId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, CLOSED, EXPIRED]
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, performance, confidence]
+            default: createdAt
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Signal'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+
+    post:
+      tags:
+        - Signals
+      summary: Create signal
+      description: Create a new trading signal (providers only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSignalRequest'
+      responses:
+        '201':
+          description: Signal created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Signal'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /signals/{signalId}:
+    get:
+      tags:
+        - Signals
+      summary: Get signal
+      description: Retrieve a single signal by ID
+      parameters:
+        - name: signalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Signal'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /trades/execute:
+    post:
+      tags:
+        - Trades
+      summary: Execute trade
+      description: Execute a new trade based on a signal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecuteTradeRequest'
+      responses:
+        '201':
+          description: Trade executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trade'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /trades/validate:
+    post:
+      tags:
+        - Trades
+      summary: Validate trade
+      description: Validate a trade before execution (dry run)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecuteTradeRequest'
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradeValidation'
+
+  /trades/close:
+    post:
+      tags:
+        - Trades
+      summary: Close trade
+      description: Close an open trade position
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseTradeRequest'
+      responses:
+        '200':
+          description: Trade closed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trade'
+
+  /trades/partial-close:
+    post:
+      tags:
+        - Trades
+      summary: Partially close trade
+      description: Close a percentage of an open position
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartialCloseRequest'
+      responses:
+        '200':
+          description: Trade partially closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trade'
+
+  /trades/{tradeId}:
+    get:
+      tags:
+        - Trades
+      summary: Get trade
+      description: Get trade details by ID
+      parameters:
+        - name: tradeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trade'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /trades/user/{userId}:
+    get:
+      tags:
+        - Trades
+      summary: List user trades
+      description: Get all trades for a specific user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [OPEN, CLOSED, PENDING]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Trade'
+
+  /trades/user/{userId}/summary:
+    get:
+      tags:
+        - Trades
+      summary: Get trade summary
+      description: Get trading statistics for a user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradeSummary'
+
+  /trades/user/{userId}/positions:
+    get:
+      tags:
+        - Trades
+      summary: Get open positions
+      description: Get all open positions for a user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Trade'
+
+  /portfolio/performance:
+    get:
+      tags:
+        - Portfolio
+      summary: Get portfolio performance
+      description: Get portfolio summary and performance metrics
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioSummary'
+
+  /portfolio/positions:
+    get:
+      tags:
+        - Portfolio
+      summary: Get portfolio positions
+      description: Get all portfolio positions
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Position'
+
+  /portfolio/history:
+    get:
+      tags:
+        - Portfolio
+      summary: Get portfolio history
+      description: Get paginated trading history
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            maximum: 100
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioHistory'
+
+  /portfolio/rebalancing/target:
+    post:
+      tags:
+        - Portfolio
+      summary: Set target allocation
+      description: Set target portfolio allocation
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetTargetAllocationRequest'
+      responses:
+        '200':
+          description: Target allocation set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TargetAllocation'
+
+    get:
+      tags:
+        - Portfolio
+      summary: Get target allocation
+      description: Get current target portfolio allocation
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TargetAllocation'
+
+  /portfolio/rebalancing/drift:
+    get:
+      tags:
+        - Portfolio
+      summary: Analyze portfolio drift
+      description: Analyze current portfolio drift from target allocation
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DriftAnalysis'
+
+  /portfolio/rebalancing/plan:
+    post:
+      tags:
+        - Portfolio
+      summary: Create rebalancing plan
+      description: Generate a rebalancing plan to match target allocation
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: autoExecute
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Rebalancing plan created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RebalancingPlan'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Signal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        providerId:
+          type: string
+          format: uuid
+        assetPair:
+          type: string
+          example: USDC/XLM
+        action:
+          type: string
+          enum: [BUY, SELL]
+        entryPrice:
+          type: number
+          format: float
+        targetPrice:
+          type: number
+          format: float
+        stopLoss:
+          type: number
+          format: float
+        confidence:
+          type: integer
+          minimum: 0
+          maximum: 100
+        reasoning:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, CLOSED, EXPIRED]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        performance:
+          type: object
+          properties:
+            roi:
+              type: number
+            pnl:
+              type: number
+
+    CreateSignalRequest:
+      type: object
+      required:
+        - providerId
+        - assetPair
+        - action
+        - entryPrice
+        - confidence
+        - reasoning
+      properties:
+        providerId:
+          type: string
+          format: uuid
+        assetPair:
+          type: string
+        action:
+          type: string
+          enum: [BUY, SELL]
+        entryPrice:
+          type: number
+        targetPrice:
+          type: number
+        stopLoss:
+          type: number
+        confidence:
+          type: integer
+          minimum: 0
+          maximum: 100
+        reasoning:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+
+    Trade:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        signalId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [OPEN, CLOSED, PENDING]
+        entryPrice:
+          type: number
+        exitPrice:
+          type: number
+        amount:
+          type: number
+        assetPair:
+          type: string
+        pnl:
+          type: number
+        roi:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        closedAt:
+          type: string
+          format: date-time
+
+    ExecuteTradeRequest:
+      type: object
+      required:
+        - userId
+        - signalId
+        - amount
+      properties:
+        userId:
+          type: string
+          format: uuid
+        signalId:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          minimum: 0
+        slippage:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    CloseTradeRequest:
+      type: object
+      required:
+        - userId
+        - tradeId
+      properties:
+        userId:
+          type: string
+          format: uuid
+        tradeId:
+          type: string
+          format: uuid
+
+    PartialCloseRequest:
+      type: object
+      required:
+        - userId
+        - tradeId
+        - percentage
+      properties:
+        userId:
+          type: string
+          format: uuid
+        tradeId:
+          type: string
+          format: uuid
+        percentage:
+          type: number
+          minimum: 1
+          maximum: 99
+
+    TradeValidation:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        estimatedCost:
+          type: number
+        estimatedFees:
+          type: number
+        priceImpact:
+          type: number
+        errors:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+
+    TradeSummary:
+      type: object
+      properties:
+        totalTrades:
+          type: integer
+        openTrades:
+          type: integer
+        closedTrades:
+          type: integer
+        totalPnL:
+          type: number
+        averageRoi:
+          type: number
+        winRate:
+          type: number
+
+    PortfolioSummary:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        totalValue:
+          type: number
+        totalPnL:
+          type: number
+        roi:
+          type: number
+        positions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Position'
+        lastUpdated:
+          type: string
+          format: date-time
+
+    Position:
+      type: object
+      properties:
+        assetCode:
+          type: string
+        amount:
+          type: number
+        value:
+          type: number
+        percentage:
+          type: number
+        averageEntryPrice:
+          type: number
+        currentPrice:
+          type: number
+        unrealizedPnL:
+          type: number
+
+    PortfolioHistory:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Trade'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    SetTargetAllocationRequest:
+      type: object
+      required:
+        - allocations
+      properties:
+        allocations:
+          type: array
+          items:
+            type: object
+            properties:
+              assetCode:
+                type: string
+              targetPercentage:
+                type: number
+                minimum: 0
+                maximum: 100
+        driftThresholdPercent:
+          type: number
+          default: 5
+        autoRebalance:
+          type: boolean
+          default: false
+
+    TargetAllocation:
+      type: object
+      properties:
+        allocations:
+          type: array
+          items:
+            type: object
+            properties:
+              assetCode:
+                type: string
+              targetPercentage:
+                type: number
+        driftThresholdPercent:
+          type: number
+        autoRebalance:
+          type: boolean
+
+    DriftAnalysis:
+      type: object
+      properties:
+        requiresRebalancing:
+          type: boolean
+        totalDrift:
+          type: number
+        drifts:
+          type: array
+          items:
+            type: object
+            properties:
+              assetCode:
+                type: string
+              currentPercentage:
+                type: number
+              targetPercentage:
+                type: number
+              drift:
+                type: number
+
+    RebalancingPlan:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PENDING, APPROVED, EXECUTED, REJECTED]
+        trades:
+          type: array
+          items:
+            type: object
+            properties:
+              assetCode:
+                type: string
+              action:
+                type: string
+                enum: [BUY, SELL]
+              amount:
+                type: number
+              estimatedCost:
+                type: number
+        totalCost:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        executedAt:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+        details:
+          type: object
+
+  responses:
+    Unauthorized:
+      description: Unauthorized - Invalid or missing API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ValidationError:
+      description: Validation error - Invalid request data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    RateLimitExceeded:
+      description: Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
