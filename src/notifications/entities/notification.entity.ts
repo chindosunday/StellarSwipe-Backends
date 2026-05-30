@@ -1,81 +1,67 @@
 import {
   Entity,
-  Column,
   PrimaryGeneratedColumn,
+  Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 
-export enum NotificationType {
-  TRADE_EXECUTED = 'TRADE_EXECUTED',
-  TRADE_CLOSED = 'TRADE_CLOSED',
-  SIGNAL_TARGET_HIT = 'SIGNAL_TARGET_HIT',
-  SIGNAL_STOP_LOSS = 'SIGNAL_STOP_LOSS',
-  MARKETING = 'MARKETING',
-  SYSTEM_ALERT = 'SYSTEM_ALERT',
+export enum NotificationChannel {
+  EMAIL = 'email',
+  IN_APP = 'in_app',
+  PUSH = 'push',
 }
 
 export enum NotificationStatus {
-  PENDING = 'PENDING',
-  SENT = 'SENT',
-  DELIVERED = 'DELIVERED',
-  FAILED = 'FAILED',
-  BOUNCED = 'BOUNCED',
+  PENDING = 'pending',
+  SENT = 'sent',
+  FAILED = 'failed',
+  READ = 'read',
 }
 
-export enum NotificationChannel {
-  EMAIL = 'EMAIL',
-  PUSH = 'PUSH',
-  BOTH = 'BOTH',
-}
-
+@Index('idx_notifications_user_id', ['userId'])
+@Index('idx_notifications_user_read', ['userId', 'status'])
 @Entity('notifications')
 export class Notification {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
-  @Column({ name: 'user_id' })
-  userId: string;
+  @Column({ name: 'user_id', type: 'uuid' })
+  userId!: string;
 
-  @Column({ type: 'enum', enum: NotificationType })
-  type: NotificationType;
+  @Column({ length: 100 })
+  type!: string;
 
-  @Column()
-  title: string;
+  @Column({
+    type: 'enum',
+    enum: NotificationChannel,
+    default: NotificationChannel.IN_APP,
+  })
+  channel!: NotificationChannel;
+
+  @Column({ length: 255 })
+  title!: string;
 
   @Column({ type: 'text' })
-  message: string;
-
-  @Column({ type: 'enum', enum: NotificationStatus, default: NotificationStatus.PENDING })
-  status: NotificationStatus;
-
-  @Column({ type: 'enum', enum: NotificationChannel })
-  channel: NotificationChannel;
+  message!: string;
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata: Record<string, any> | null;
+  metadata?: Record<string, unknown>;
 
-  @Column({ name: 'email_message_id', nullable: true })
-  emailMessageId: string | null;
+  @Column({
+    type: 'enum',
+    enum: NotificationStatus,
+    default: NotificationStatus.PENDING,
+  })
+  status!: NotificationStatus;
 
-  @Column({ name: 'push_message_id', nullable: true })
-  pushMessageId: string | null;
-
-  @Column({ name: 'sent_at', nullable: true })
-  sentAt: Date | null;
-
-  @Column({ name: 'delivered_at', nullable: true })
-  deliveredAt: Date | null;
-
-  @Column({ name: 'error_message', nullable: true })
-  errorMessage: string | null;
-
-  @Column({ name: 'retry_count', default: 0 })
-  retryCount: number;
+  @Column({ name: 'read_at', type: 'timestamp', nullable: true })
+  readAt?: Date;
 
   @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+  updatedAt!: Date;
 }
