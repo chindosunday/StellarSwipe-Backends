@@ -69,6 +69,7 @@ import { AuditModule } from './audit-log/audit.module';
 import { SocialExportModule } from './social-export/social-export.module';
 import { QuotaReportingModule } from './multitenancy/quota-reporting/quota-reporting.module';
 import { MarketDataHistoryModule } from './market-data/history/market-data-history.module';
+import { ContractsModule } from './contracts/contracts.module';
 
 @Module({
   imports: [
@@ -171,6 +172,7 @@ import { MarketDataHistoryModule } from './market-data/history/market-data-histo
     AccessControlModule,
     QuotaReportingModule,
     MarketDataHistoryModule,
+    ContractsModule,
     KycModule,
     ProductAnalyticsModule,
     BackupModule,
