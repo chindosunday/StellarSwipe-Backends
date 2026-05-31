@@ -1,0 +1,192 @@
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User, UserTier, KycStatus } from '../users/entities/user.entity';
+import { ComplianceLog } from './entities/compliance-log.entity';
+import { UserDataExporterService } from './exporters/user-data-exporter.service';
+import { TradeReportExporterService } from './exporters/trade-report-exporter.service';
+import { AuditTrailExporterService } from './exporters/audit-trail-exporter.service';
+import { GdprReportGenerator } from './reports/gdpr-report.generator';
+import { FinancialReportGenerator } from './reports/financial-report.generator';
+import { ExportFormat } from './dto/export-request.dto';
+import { writeFile, unlink, mkdir } from 'fs/promises';
+import { join } from 'path';
+import { existsSync } from 'fs';
+import { JobSchedulerService } from '../jobs/job-scheduler.service';
+import { EncryptionService } from '../security/encryption.service';
+
+@Injectable()
+export class ComplianceService {
+  private readonly logger = new Logger(ComplianceService.name);
+  private readonly exportDir: string;
+
+  constructor(
+    private configService: ConfigService,
+    private userDataExporter: UserDataExporterService,
+    private tradeReportExporter: TradeReportExporterService,
+    private auditExporter: AuditTrailExporterService,
+    private gdprGenerator: GdprReportGenerator,
+    private financialGenerator: FinancialReportGenerator,
+    private encryptionService: EncryptionService,
+  ) {
+    this.exportDir = this.configService.get('EXPORT_DIR', '/tmp/exports');
+    this.ensureExportDir();
+  }
+
+  private async ensureExportDir(): Promise<void> {
+    if (!existsSync(this.exportDir)) {
+      await mkdir(this.exportDir, { recursive: true });
+    }
+  }
+
+  async exportUserData(userId: string, format: ExportFormat = ExportFormat.JSON): Promise<string> {
+    this.logger.log(`Exporting user data for ${userId} in ${format} format`);
+
+    const userData = await this.userDataExporter.exportUserData(userId);
+    const fileName = `user_export_${userId}_${Date.now()}.${format}`;
+    const filePath = join(this.exportDir, fileName);
+
+    let fileContent: string;
+    if (format === ExportFormat.JSON) {
+      fileContent = JSON.stringify(userData, null, 2);
+    } else if (format === ExportFormat.CSV) {
+      fileContent = this.convertToCSV(userData);
+    } else {
+      throw new Error('PDF format not yet implemented');
+    }
+
+    const encrypted = this.encryptFile(fileContent);
+    await writeFile(filePath, encrypted);
+
+    this.scheduleFileDeletion(filePath, 7);
+
+    return filePath;
+  }
+
+  async generateComplianceReport(type: string, startDate: Date, endDate: Date): Promise<any> {
+    this.logger.log(`Generating ${type} compliance report`);
+
+    switch (type) {
+      case 'trade_volume':
+        return this.tradeReportExporter.generateTradeVolumeReport(startDate, endDate);
+      case 'financial_summary':
+        return this.tradeReportExporter.generateFinancialSummary(startDate, endDate);
+      case 'audit_trail':
+        return this.auditExporter.generateAuditReport(startDate, endDate, true);
+      default:
+        throw new Error(`Unknown report type: ${type}`);
+    }
+  }
+
+  async validateTransaction(userId: string, amount: number, asset: string): Promise<void> {
+    this.logger.log(`Performing compliance check for user ${userId}, amount ${amount} ${asset}`);
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    // 1. Check KYC Status
+    if (user.kycStatus !== KycStatus.VERIFIED) {
+      await this.logCompliance(userId, 'transaction_blocked', `KYC status is ${user.kycStatus}`, { amount, asset });
+      throw new ForbiddenException(`Transaction blocked: KYC status is ${user.kycStatus}. Please complete your verification.`);
+    }
+
+    // 2. AML Screening (Mocked)
+    const isAmlFlagged = await this.mockAmlScreening(userId, amount);
+    if (isAmlFlagged) {
+      await this.logCompliance(userId, 'transaction_blocked', 'AML screening flagged this transaction', { amount, asset });
+      throw new ForbiddenException('Transaction blocked due to AML screening. Our compliance team will review it.');
+    }
+
+    // 3. Transaction Limits based on User Tier
+    const limit = this.getTransactionLimit(user.tier);
+    if (amount > limit) {
+      await this.logCompliance(userId, 'transaction_blocked', `Transaction amount ${amount} exceeds limit ${limit} for tier ${user.tier}`, { amount, asset });
+      throw new ForbiddenException(`Transaction blocked: Amount exceeds your daily limit of ${limit} for ${user.tier} tier.`);
+    }
+
+    // 4. Log successful compliance check
+    await this.logCompliance(userId, 'transaction_allowed', 'Compliance checks passed', { amount, asset });
+  }
+
+  private async logCompliance(userId: string, type: any, reason: string, metadata: any): Promise<void> {
+    const log = this.complianceLogRepository.create({
+      userId,
+      type,
+      reason,
+      metadata,
+      ipAddress: '0.0.0.0', // In production, get from request
+    });
+    await this.complianceLogRepository.save(log);
+  }
+
+  private async mockAmlScreening(_userId: string, amount: number): Promise<boolean> {
+    // Mock AML logic: flag extremely large transactions
+    return amount > 1000000;
+  }
+
+  private getTransactionLimit(tier: UserTier): number {
+    switch (tier) {
+      case UserTier.BASIC:
+        return 1000;
+      case UserTier.SILVER:
+        return 5000;
+      case UserTier.GOLD:
+        return 20000;
+      case UserTier.PLATINUM:
+        return 100000;
+      default:
+        return 0;
+    }
+  }
+
+  @Cron(CronExpression.EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT)
+  async generateMonthlyReports(): Promise<void> {
+    const now = new Date();
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1);
+
+    this.logger.log(`Generating monthly compliance reports for ${lastMonth.toISOString()}`);
+
+    try {
+      const report = await this.financialGenerator.generateMonthlyComplianceReport(
+        lastMonth.getFullYear(),
+        lastMonth.getMonth() + 1,
+      );
+
+      const fileName = `compliance_report_${lastMonth.getFullYear()}_${String(lastMonth.getMonth() + 1).padStart(2, '0')}.json`;
+      const filePath = join(this.exportDir, fileName);
+
+      await writeFile(filePath, JSON.stringify(report, null, 2));
+      this.logger.log(`Monthly compliance report saved to ${filePath}`);
+    } catch (error) {
+      this.logger.error(`Failed to generate monthly report: ${error.message}`);
+    }
+  }
+
+  private encryptFile(content: string): string {
+    return this.encryptionService.encrypt(content);
+  }
+
+  private convertToCSV(data: any): string {
+    if (!data.trades || data.trades.length === 0) return '';
+
+    const headers = Object.keys(data.trades[0]).join(',');
+    const rows = data.trades.map((trade: any) => Object.values(trade).join(',')).join('\n');
+
+    return `${headers}\n${rows}`;
+  }
+
+  private scheduleFileDeletion(filePath: string, days: number): void {
+    const deleteAt = Date.now() + days * 24 * 60 * 60 * 1000;
+    setTimeout(async () => {
+      try {
+        await unlink(filePath);
+        this.logger.log(`Auto-deleted export file: ${filePath}`);
+      } catch (error) {
+        this.logger.error(`Failed to delete file ${filePath}: ${error.message}`);
+      }
+    }, deleteAt - Date.now());
+  }
+}

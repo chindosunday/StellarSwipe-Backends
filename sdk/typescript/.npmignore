@@ -1,0 +1,9 @@
+src/
+examples/
+*.test.ts
+tsconfig.json
+.eslintrc.js
+.prettierrc
+jest.config.js
+node_modules/
+.DS_Store

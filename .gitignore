@@ -43,8 +43,12 @@ credentials.json
 secrets.json
 
 package-lock.json
-scripts
+# scripts (deployment scripts are tracked)
+# scripts
 
 # Rust / Soroban
 target/
 **/target/
+
+# Issues tracking file
+vrickish.md

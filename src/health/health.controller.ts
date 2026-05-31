@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, OnApplicationBootstrap, Logger, UseGuards } from '@nestjs/common';
 import {
   HealthCheck,
   HealthCheckService,
@@ -10,16 +10,48 @@ import {
   DatabaseHealthIndicator,
   RedisHealthIndicator,
 } from './indicators';
+import { HealthSummaryService, ServiceHealthSummary } from './health-summary.service';
+import { HealthMetricsAuthGuard } from '../common/guards/health-metrics-auth.guard';
 
 @Controller('health')
-export class HealthController {
+@UseGuards(HealthMetricsAuthGuard)
+export class HealthController implements OnApplicationBootstrap {
+  private readonly logger = new Logger(HealthController.name);
+
   constructor(
     private health: HealthCheckService,
     private stellarHealth: StellarHealthIndicator,
     private sorobanHealth: SorobanHealthIndicator,
     private databaseHealth: DatabaseHealthIndicator,
     private redisHealth: RedisHealthIndicator,
+    private healthSummary: HealthSummaryService,
   ) { }
+
+  async onApplicationBootstrap(): Promise<void> {
+    const maxRetries = 5;
+    const retryDelayMs = 3000;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this.health.check([
+          () => this.databaseHealth.isHealthy('database'),
+          () => this.redisHealth.isHealthy('cache'),
+        ]);
+        this.logger.log('Startup health check passed: database and cache are ready');
+        return;
+      } catch (err) {
+        this.logger.warn(
+          `Startup health check attempt ${attempt}/${maxRetries} failed: ${(err as Error).message}`,
+        );
+        if (attempt < maxRetries) {
+          await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+        } else {
+          this.logger.error('Critical dependencies unavailable after max retries — aborting startup');
+          process.exit(1);
+        }
+      }
+    }
+  }
 
   @Get()
   @HealthCheck()
@@ -70,12 +102,42 @@ export class HealthController {
     return this.health.check([]);
   }
 
+  @Get('summary')
+  async getHealthSummary(): Promise<ServiceHealthSummary> {
+    return this.healthSummary.getHealthSummary();
+  }
+
   @Get('readiness')
   @HealthCheck()
   async readiness(): Promise<HealthCheckResult> {
     return this.health.check([
       () => this.databaseHealth.isHealthy('database'),
       () => this.redisHealth.isHealthy('cache'),
+    ]);
+  }
+
+  /**
+   * #530 — /healthz endpoint for Kubernetes liveness probes.
+   * This is a simplified health check that only checks if the app is running.
+   */
+  @Get('healthz')
+  @HealthCheck()
+  async healthz(): Promise<HealthCheckResult> {
+    return this.health.check([]);
+  }
+
+  /**
+   * #530 — /ready endpoint for Kubernetes readiness probes.
+   * This checks if the backend is ready to accept traffic (DB + cache + external integrations).
+   */
+  @Get('ready')
+  @HealthCheck()
+  async ready(): Promise<HealthCheckResult> {
+    return this.health.check([
+      () => this.databaseHealth.isHealthy('database'),
+      () => this.redisHealth.isHealthy('cache'),
+      () => this.sorobanHealth.isHealthy('soroban'),
+      () => this.stellarHealth.isHealthy('stellar'),
     ]);
   }
 }

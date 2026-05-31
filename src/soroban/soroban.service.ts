@@ -22,6 +22,18 @@ import {
   ContractResult,
 } from './interfaces/contract-result.interface';
 
+// Optional import for monitoring - will be injected if available
+interface SorobanMonitoringService {
+  recordFailure(failure: {
+    contractId: string;
+    method: string;
+    error: string;
+    timestamp: Date;
+    endpoint?: string;
+    userId?: string;
+  }): void;
+}
+
 interface FeeEstimate {
   inclusionFee: string;
   resourceFee: string;
@@ -39,7 +51,10 @@ export class SorobanService {
   private readonly logger = new Logger(SorobanService.name);
   private readonly server: SorobanRpc.Server;
 
-  constructor(private readonly stellarConfig: StellarConfigService) {
+  constructor(
+    private readonly stellarConfig: StellarConfigService,
+    private readonly sorobanMonitoring?: SorobanMonitoringService,
+  ) {
     this.server = new SorobanRpc.Server(this.stellarConfig.sorobanRpcUrl);
   }
 
@@ -149,6 +164,19 @@ export class SorobanService {
       this.logger.error(
         `Soroban invocation failed for ${contractId}.${method}: ${errorMessage}`,
       );
+      
+      // Record failure for monitoring
+      if (this.sorobanMonitoring) {
+        this.sorobanMonitoring.recordFailure({
+          contractId,
+          method,
+          error: errorMessage,
+          timestamp: new Date(),
+          endpoint: options.sourceAccount,
+          userId: options.sourceAccount,
+        });
+      }
+      
       if (error instanceof SorobanException) {
         throw error;
       }
