@@ -54,6 +54,18 @@ export class CreateSignalDto {
   @IsOptional()
   @IsObject()
   metadata?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsString()
+  tier?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isStaked?: boolean;
+
+  @IsOptional()
+  @IsEnum(SignalOutcome)
+  outcome?: SignalOutcome;
 }
 
 export class UpdateSignalDto {

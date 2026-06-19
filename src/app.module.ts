@@ -18,6 +18,7 @@ import { StellarConfigService } from './config/stellar.service';
 
 import { LoggerModule } from './common/logger';
 import { SentryModule } from './common/sentry';
+import { ErrorClassificationModule } from './common/error-classification/error-classification.module';
 import { CacheModule } from './cache/cache.module';
 
 import { AuthModule } from './auth/auth.module';
@@ -39,6 +40,7 @@ import { SecurityModule } from './security/security.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { SecurityMonitoringModule } from './security/security-monitoring.module';
 import { AccessControlModule } from './security/access-control/access-control.module';
+import { EncryptedStorageModule } from './storage/encryption/encrypted-storage.module';
 import { KycModule } from './kyc/kyc.module';
 import { ProductAnalyticsModule } from './analytics/product-analytics.module';
 import { BackupModule } from './backup/backup.module';
@@ -52,13 +54,15 @@ import { CompetitionsModule } from './competitions/competitions.module';
 import { NftModule } from './nft/nft.module';
 import { HealthModule } from './health/health.module';
 import { RateLimitModule } from './common/rate-limit.module';
- feature/295-discord-community-integration
+import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
+import { LeaderboardModule } from './leaderboard/leaderboard.module';
+// feature/295-discord-community-integration
 import { DiscordBotModule } from './integrations/discord/discord-bot.module';
 
- feature/294-telegram-bot-integration
+// feature/294-telegram-bot-integration
 import { TelegramBotModule } from './integrations/telegram/telegram-bot.module';
 
- feature/293-mobile-api-optimizations
+// feature/293-mobile-api-optimizations
 import { MobileModule } from './mobile/mobile.module';
 
 import { AutomationModule } from './integrations/automation-platforms/automation.module';
@@ -70,9 +74,15 @@ import { I18nModule } from './i18n/i18n.module';
 import { PortfolioModule } from './portfolio/portfolio.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AuditModule } from './audit-log/audit.module';
- main
- main
- main
+import { AssetsModule } from './assets/assets.module';
+import { SocialExportModule } from './social-export/social-export.module';
+import { LowBalanceAlertModule } from './alerts/low-balance-alert.module';
+import { OrdersModule } from './orders/orders.module';
+import { ComplianceAuditExportModule } from './compliance/audit-export/compliance-audit-export.module';
+import { SwapModule } from './swap/swap.module';
+import { RiskControlsModule } from './risk-controls/risk-controls.module';
+import { WalletModule } from './wallet/wallet.module';
+import { FreighterModule } from './freighter/freighter.module';
 
 @Module({
   imports: [
@@ -153,6 +163,7 @@ import { AuditModule } from './audit-log/audit.module';
 
     LoggerModule,
     SentryModule,
+    ErrorClassificationModule,
     UsersModule,
     SignalsModule,
     TradesModule,
@@ -163,6 +174,7 @@ import { AuditModule } from './audit-log/audit.module';
     ApiMonetizationModule,
     SlaModule,
     ProvidersModule,
+    LeaderboardModule,
     MlModule,
     ScalingModule,
     VersioningModule,
@@ -172,6 +184,10 @@ import { AuditModule } from './audit-log/audit.module';
     SecurityModule,
     SecurityMonitoringModule,
     AccessControlModule,
+    EncryptedStorageModule,
+    QuotaReportingModule,
+    MarketDataHistoryModule,
+    ContractsModule,
     KycModule,
     ProductAnalyticsModule,
     BackupModule,
@@ -185,13 +201,13 @@ import { AuditModule } from './audit-log/audit.module';
     NftModule,
     HealthModule,
     RateLimitModule,
- feature/295-discord-community-integration
+    // feature/295-discord-community-integration
     DiscordBotModule,
 
- feature/294-telegram-bot-integration
+    // feature/294-telegram-bot-integration
     TelegramBotModule,
 
- feature/293-mobile-api-optimizations
+    // feature/293-mobile-api-optimizations
     MobileModule,
 
     AutomationModule,
@@ -203,11 +219,17 @@ import { AuditModule } from './audit-log/audit.module';
     PortfolioModule,
     NotificationsModule,
     AuditModule,
- main
- main
- main
+    AssetsModule,
+    SocialExportModule,
+    LowBalanceAlertModule,
+    OrdersModule,
+    ComplianceAuditExportModule,
+    SwapModule,
+    RiskControlsModule,
+    WalletModule,
+    FreighterModule,
   ],
-  providers: [StellarConfigService],
+  providers: [StellarConfigService, RateLimitMiddleware],
   exports: [StellarConfigService],
 })
 export class AppModule { }

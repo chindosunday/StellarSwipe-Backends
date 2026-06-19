@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Signal, SignalStatus, SignalType } from './entities/signal.entity';
 import { CacheService, CachePrefix } from '../cache/cache.service';
 import { SignalQuotaService } from './quota/signal-quota.service';
+import { CreateSignalDto } from './dto';
 
 @Injectable()
 export class SignalsService {
@@ -17,7 +18,7 @@ export class SignalsService {
     private readonly quotaService: SignalQuotaService,
   ) {}
 
-  async create(createSignalDto: any): Promise<Signal> {
+  async create(createSignalDto: CreateSignalDto): Promise<Signal> {
     if (!createSignalDto.providerId || !createSignalDto.baseAsset || !createSignalDto.counterAsset) {
       throw new BadRequestException('providerId, baseAsset, and counterAsset are required');
     }

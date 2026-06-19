@@ -6,6 +6,8 @@ import { I18nValidationExceptionFilter, I18nValidationPipe } from 'nestjs-i18n';
 import * as compression from 'compression';
 import { AppModule } from "./app.module";
 import { GlobalExceptionFilter } from "./common/filters";
+import { ErrorClassificationService } from "./common/error-classification";
+import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
 import {
   LoggingInterceptor,
   TransformInterceptor,
@@ -72,6 +74,10 @@ async function bootstrap() {
   // Enable compression
   app.use((compression as any)(compressionConfig));
 
+  // Apply global rate limiting middleware before any request reaches route handlers
+  const rateLimitMiddleware = app.get(RateLimitMiddleware);
+  app.use(rateLimitMiddleware.use.bind(rateLimitMiddleware));
+
   // Track in-flight requests for graceful drain
   let inFlightRequests = 0;
   app.use((_req: any, _res: any, next: () => void) => {
@@ -105,11 +111,12 @@ async function bootstrap() {
   const instanceCoordinator = app.get(InstanceCoordinatorService);
   logger.info(`Application started on instance: ${instanceCoordinator.getInstanceId()}`);
 
-  // Global filters
-  app.useGlobalFilters(
-    new GlobalExceptionFilter(logger, sentryService),
-    new I18nValidationExceptionFilter({ detailedErrors: false }),
-  );
+// Global filters
+   const errorClassifier = app.get(ErrorClassificationService);
+   app.useGlobalFilters(
+     new GlobalExceptionFilter(logger, sentryService, errorClassifier),
+     new I18nValidationExceptionFilter({ detailedErrors: false }),
+   );
 
   // Global interceptors
   app.useGlobalInterceptors(new DeadlockRetryInterceptor());

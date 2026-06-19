@@ -15,6 +15,9 @@ import { EventProcessorService } from './services/event-processor.service';
 import { StellarIntegrationService } from './services/stellar-integration.service';
 import { WalletBalanceSyncJob } from './jobs/wallet-balance-sync.job';
 import { User } from '../users/entities/user.entity';
+import { OnChainEvent } from './entities/on-chain-event.entity';
+import { OnChainSyncService } from './on-chain-sync.service';
+import { OnChainSyncJob } from './on-chain-sync.job';
 
 @Module({
   imports: [
@@ -22,7 +25,7 @@ import { User } from '../users/entities/user.entity';
     EventEmitterModule.forRoot(),
     CacheModule,
     ScheduleModule.forRoot(),
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, OnChainEvent]),
   ],
   controllers: [TrustlineController, HorizonStreamController],
   providers: [
@@ -34,6 +37,8 @@ import { User } from '../users/entities/user.entity';
     EventProcessorService,
     StellarIntegrationService,
     WalletBalanceSyncJob,
+    OnChainSyncService,
+    OnChainSyncJob,
   ],
   exports: [
     StellarConfigService,
@@ -44,6 +49,7 @@ import { User } from '../users/entities/user.entity';
     EventProcessorService,
     StellarIntegrationService,
     WalletBalanceSyncJob,
+    OnChainSyncService,
   ],
 })
 export class StellarModule {}
