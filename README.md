@@ -325,6 +325,38 @@ kill -9 <PID>
 3. Push to branch: `git push origin feature/new-feature`
 4. Submit Pull Request
 
+## Releases & Changelog
+
+This project follows [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `perf:`, `test:`, `build:`, `ci:`, etc.) for commit messages. `CHANGELOG.md` is generated automatically from this commit history using [`conventional-changelog-cli`](https://github.com/conventional-changelog/conventional-changelog).
+
+### Generating the changelog
+
+When cutting a release:
+
+1. Make sure commit messages since the last release follow the Conventional Commits format. Use a `BREAKING CHANGE:` footer (or a `!` after the type/scope, e.g. `feat!:`) for any breaking change — these are surfaced in their own dedicated section of the changelog.
+2. Run:
+
+   ```bash
+   npm run changelog
+   ```
+
+   This parses commits since the last git tag (or the full history if no tag exists yet) and prepends a categorized entry (Features, Bug Fixes, Breaking Changes, etc.) to the top of `CHANGELOG.md`. If `CHANGELOG.md` does not exist, it will be created.
+3. Review the generated entry, then commit it together with the version bump:
+
+   ```bash
+   git add CHANGELOG.md
+   git commit -m "chore(release): update changelog"
+   ```
+4. Tag the release (e.g. `git tag v1.2.0`) so the next changelog run only picks up commits made after this point.
+
+To regenerate the changelog for the entire commit history from scratch (e.g. to fix formatting), use:
+
+```bash
+npm run changelog:init
+```
+
+This rewrites `CHANGELOG.md` from the very first commit instead of appending only the new entries.
+
 ## Documentation
 
 ### Dependencies
