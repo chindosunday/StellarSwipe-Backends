@@ -21,9 +21,10 @@ import { AuthAuditService } from './auth-audit.service';
 import { AuditModule } from '../audit-log/audit.module';
 import { SessionManagerService } from './session/session-manager.service';
 import { SessionCleanupService } from './session/session-cleanup.service';
-import { WebauthnCredential } from './webauthn/entities/webauthn-credential.entity';
-import { WebauthnService } from './webauthn/webauthn.service';
-import { WebauthnController } from './webauthn/webauthn.controller';
+import { SessionFingerprintService } from './session/session-fingerprint.service';
+import { LoginFingerprint } from './session/entities/login-fingerprint.entity';
+import { EmailModule } from '../email/email.module';
+import { AnomalousLoginListener } from './session/anomalous-login.listener';
 
 @Module({
   imports: [
@@ -40,7 +41,7 @@ import { WebauthnController } from './webauthn/webauthn.controller';
     }),
     CacheModule,
     AuditModule,
-    TypeOrmModule.forFeature([User, SocialConnection, TwoFactor, WebauthnCredential]),
+    TypeOrmModule.forFeature([User, SocialConnection, TwoFactor, LoginFingerprint]),
     UsersModule,
     EmailModule,
   ],
@@ -55,7 +56,8 @@ import { WebauthnController } from './webauthn/webauthn.controller';
     AuthAuditService,
     SessionManagerService,
     SessionCleanupService,
-    WebauthnService,
+    SessionFingerprintService,
+    AnomalousLoginListener,
   ],
   exports: [
     AuthService,
@@ -65,7 +67,7 @@ import { WebauthnController } from './webauthn/webauthn.controller';
     TwoFactorService,
     AuthAuditService,
     SessionManagerService,
-    WebauthnService,
+    SessionFingerprintService,
   ],
 })
 export class AuthModule {}
