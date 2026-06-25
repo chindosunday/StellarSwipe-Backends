@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CqrsModule } from '@nestjs/cqrs';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Trade } from './entities/trade.entity';
 import { AdvancedOrder } from './entities/advanced-order.entity';
@@ -40,9 +41,11 @@ import { TradeSagaOrchestrator } from './saga/trade-saga.orchestrator';
 import { TradeSagaStepsFactory } from './saga/trade-saga.steps';
 import { TradeSagaService } from './saga/trade-saga.service';
 import { TradeSagaEntity } from './saga/trade-saga.entity';
+import { TRADE_CQRS_HANDLERS } from './cqrs';
 
 @Module({
   imports: [
+    CqrsModule,
     TypeOrmModule.forFeature([Trade, AdvancedOrder, Signal, TradeSagaEntity]),
     RiskManagerModule,
     ComplianceModule,
@@ -76,6 +79,7 @@ import { TradeSagaEntity } from './saga/trade-saga.entity';
     TradeSagaOrchestrator,
     TradeSagaStepsFactory,
     TradeSagaService,
+    ...TRADE_CQRS_HANDLERS,
   ],
   exports: [TradesService, RiskManagerService, OcoOrderService, IcebergOrderService, PartialCloseService, TradeHistoryService, TradeOutcomeService, TradeAuditService, ConfirmationPollingService, TradeExecutionOrchestratorService, TradeRetryService, TradeExecutorService, TradeSagaService],
 })
