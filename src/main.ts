@@ -11,9 +11,9 @@ import { ErrorClassificationService } from "./common/error-classification";
 import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
 import {
   LoggingInterceptor,
-  TransformInterceptor,
   TimeoutInterceptor,
   SensitiveDataInterceptor,
+  ResponseEnvelopeInterceptor,
 } from './common/interceptors';
 import { LoggerService } from './common/logger';
 import { CorrelationIdStore } from './common/correlation/correlation-id.store';
@@ -133,7 +133,7 @@ async function bootstrap() {
   app.useGlobalInterceptors(
     new LoggingInterceptor(logger, app.get(CorrelationIdStore), configService),
   );
-  app.useGlobalInterceptors(new TransformInterceptor());
+  app.useGlobalInterceptors(new ResponseEnvelopeInterceptor(app.get(Reflector)));
   app.useGlobalInterceptors(new SensitiveDataInterceptor());
   app.useGlobalInterceptors(app.get(MetricsInterceptor));
 

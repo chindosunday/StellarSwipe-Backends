@@ -13,6 +13,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { buildPaginationLinks } from '../common/pagination/pagination-links.util';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OwnershipGuard } from '../common/guards/ownership.guard';
 import { CheckOwnership } from '../common/decorators/check-ownership.decorator';
@@ -125,15 +126,28 @@ export class TradesController {
     @Query('endDate') endDate?: string,
     @Query('limit') limit?: number,
     @Query('offset') offset?: number,
-  ): Promise<PaginatedTradeHistoryDto> {
-    return this.tradeHistoryService.getUserTradeHistory({
+    @Request() req?: any,
+  ): Promise<PaginatedTradeHistoryDto & { links?: ReturnType<typeof buildPaginationLinks> }> {
+    const resolvedLimit = Number(limit) || 20;
+    const resolvedOffset = Number(offset) || 0;
+
+    const result = await this.tradeHistoryService.getUserTradeHistory({
       userId,
       status,
       startDate,
       endDate,
-      limit,
-      offset,
+      limit: resolvedLimit,
+      offset: resolvedOffset,
     });
+
+    const totalPages = Math.ceil(result.total / resolvedLimit);
+    const currentPage = Math.floor(resolvedOffset / resolvedLimit) + 1;
+
+    const links = req
+      ? buildPaginationLinks(req.url, { page: currentPage, limit: resolvedLimit, totalPages })
+      : undefined;
+
+    return { ...result, links };
   }
 
   /**
