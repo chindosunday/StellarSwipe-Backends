@@ -113,6 +113,36 @@ export class WebhooksService {
     await this.webhookSender.retryDelivery(deliveryId);
   }
 
+  async replayToSubscriber(
+    userId: string,
+    deliveryId: string,
+    subscriberWebhookId: string,
+  ): Promise<void> {
+    const delivery = await this.deliveryRepo.findOne({ where: { id: deliveryId } });
+    if (!delivery) throw new NotFoundException(`Delivery not found: ${deliveryId}`);
+
+    const webhook = await this.findOne(userId, subscriberWebhookId);
+
+    const replayPayload = {
+      ...(delivery.payload as any),
+      deliveryId: uuidv4(),
+      isReplay: true,
+      originalDeliveryId: deliveryId,
+    };
+
+    const replayDelivery = this.deliveryRepo.create({
+      webhookId: webhook.id,
+      eventType: delivery.eventType,
+      eventId: `replay:${deliveryId}`,
+      payload: replayPayload,
+      status: 'pending',
+      attempts: 0,
+    });
+    await this.deliveryRepo.save(replayDelivery);
+
+    await this.webhookSender.deliverWebhook(webhook, replayPayload);
+  }
+
   async dispatchEvent(
     eventName: string,
     eventData: Record<string, unknown>,
