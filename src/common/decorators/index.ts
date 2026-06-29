@@ -14,3 +14,4 @@ export {
   CurrentWallet,
   type CurrentWalletOptions,
 } from './current-wallet.decorator';
+export { Internal, INTERNAL_FIELD_KEY, getInternalFields } from './internal.decorator';
