@@ -4,6 +4,7 @@ import { ConfigService } from '../../config/config.service';
 import { StellarConfigService } from '../../config/stellar.service';
 import { HorizonBulkheadService } from '../../stellar/bulkhead/horizon-bulkhead.service';
 import { SlippageExceededException } from '../exceptions/slippage-exceeded.exception';
+import { Keypair } from '@stellar/stellar-base';
 
 describe('SlippageGuardService', () => {
   let service: SlippageGuardService;
@@ -52,6 +53,8 @@ describe('SlippageGuardService', () => {
       });
     };
 
+    const mockIssuer = Keypair.random().publicKey();
+
     it('Within Tolerance: Execution proceeds normally', async () => {
       // Reference price = 0.15000000
       // Live price = 0.15060000
@@ -60,7 +63,7 @@ describe('SlippageGuardService', () => {
       mockOrderbook('0.15060000');
 
       await expect(
-        service.verifySlippage('XLM', 'USDC:ISSUER', 0.15),
+        service.verifySlippage('XLM', `USDC:${mockIssuer}`, 0.15),
       ).resolves.not.toThrow();
     });
 
@@ -72,7 +75,7 @@ describe('SlippageGuardService', () => {
       mockOrderbook('0.15075000');
 
       await expect(
-        service.verifySlippage('XLM', 'USDC:ISSUER', 0.15),
+        service.verifySlippage('XLM', `USDC:${mockIssuer}`, 0.15),
       ).resolves.not.toThrow();
     });
 
@@ -84,7 +87,7 @@ describe('SlippageGuardService', () => {
       mockOrderbook('0.15090000');
 
       await expect(
-        service.verifySlippage('XLM', 'USDC:ISSUER', 0.15),
+        service.verifySlippage('XLM', `USDC:${mockIssuer}`, 0.15),
       ).rejects.toThrow(SlippageExceededException);
     });
 
@@ -95,7 +98,7 @@ describe('SlippageGuardService', () => {
       mockOrderbook('0.15060000');
 
       await expect(
-        service.verifySlippage('XLM', 'USDC:ISSUER', 0.15, 20),
+        service.verifySlippage('XLM', `USDC:${mockIssuer}`, 0.15, 20),
       ).rejects.toThrow(SlippageExceededException);
     });
   });

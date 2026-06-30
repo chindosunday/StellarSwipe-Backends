@@ -49,7 +49,7 @@ export class SlippageGuardService {
 
     // Calculate percentage deviation in basis points
     // Deviation = |Live - Ref| / Ref * 10000
-    const deviationBps = Math.abs((livePrice - referencePrice) / referencePrice) * 10000;
+    const deviationBps = Number((Math.abs((livePrice - referencePrice) / referencePrice) * 10000).toFixed(4));
 
     this.logger.debug(
       `Slippage check - Ref: ${referencePrice}, Live: ${livePrice}, Deviation: ${Math.round(
