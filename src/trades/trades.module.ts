@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { TradeCsvExportService } from './trade-csv-export.service';
 import { Trade } from './entities/trade.entity';
 import { AdvancedOrder } from './entities/advanced-order.entity';
 import { TradesController } from './trades.controller';
@@ -29,7 +30,6 @@ import { TradeAuditService } from './trade-audit.service';
 import { TradeAuditController } from './trade-audit.controller';
 import { ConfirmationPollingService } from './services/confirmation-polling.service';
 import { AuditModule } from '../audit-log/audit.module';
-import { NotificationsModule } from '../notifications/notifications.module';
 import { TradeExecutionOrchestratorService } from './services/trade-execution-orchestrator.service';
 import { SwipeController } from './swipe/swipe.controller';
 import { SwipeService } from './swipe/swipe.service';
@@ -70,6 +70,7 @@ import { TradeRetryController } from './trade-retry.controller';
     TradeExecutionOrchestratorService,
     SwipeService,
     TradeRetryService,
+    TradeCsvExportService,
   ],
   exports: [TradesService, RiskManagerService, OcoOrderService, IcebergOrderService, PartialCloseService, TradeHistoryService, TradeOutcomeService, TradeAuditService, ConfirmationPollingService, TradeExecutionOrchestratorService, TradeRetryService, TradeExecutorService],
 })

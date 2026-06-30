@@ -10,8 +10,12 @@ import {
   ParseUUIDPipe,
   UseGuards,
   Request,
+  Res,
+  Header,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RateLimit, RateLimitTier } from '../common/decorators/rate-limit.decorator';
 import { TradesService } from './trades.service';
 import { TradeOutcomeService } from './trade-outcome.service';
 import { TradeOutcomeQueryDto } from './dto/trade-outcome-query.dto';
@@ -20,6 +24,7 @@ import { RiskManagerService } from './services/risk-manager.service';
 import { ExecuteTradeDto, CloseTradeDto } from './dto/execute-trade.dto';
 import { PartialCloseDto } from './partial-close/dto/partial-close.dto';
 import { PartialCloseService } from './partial-close/partial-close.service';
+import { TradeCsvExportService } from './trade-csv-export.service';
 import {
   TradeResultDto,
   TradeDetailsDto,
@@ -37,6 +42,7 @@ export class TradesController {
     private readonly riskManager: RiskManagerService,
     private readonly partialCloseService: PartialCloseService,
     private readonly tradeOutcomeService: TradeOutcomeService,
+    private readonly tradeCsvExportService: TradeCsvExportService,
   ) { }
 
   /**
@@ -197,5 +203,27 @@ export class TradesController {
   @UseGuards(JwtAuthGuard)
   queryOutcomes(@Query() query: TradeOutcomeQueryDto, @Request() req: any) {
     return this.tradeOutcomeService.queryOutcomes(query, req.user.id);
+  }
+
+  /**
+   * Stream the authenticated user's full trade history as CSV.
+   * GET /trades/export?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+   */
+  @Get('export')
+  @UseGuards(JwtAuthGuard)
+  @RateLimit({ tier: RateLimitTier.AUTHENTICATED, limit: 5, window: 3600 })
+  @Header('Content-Type', 'text/csv')
+  @Header('Content-Disposition', 'attachment; filename="trade-history.csv"')
+  exportCsv(
+    @Request() req: any,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Res() res?: Response,
+  ): void {
+    const stream = this.tradeCsvExportService.streamUserTrades(
+      req.user.userId ?? req.user.id,
+      { startDate, endDate },
+    );
+    stream.pipe(res!);
   }
 }
