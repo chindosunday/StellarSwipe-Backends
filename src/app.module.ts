@@ -27,6 +27,8 @@ import { SentryModule } from './common/sentry';
 import { ErrorClassificationModule } from './common/error-classification/error-classification.module';
 import { CacheModule } from './cache/cache.module';
 import { MaxCallDepthModule } from './common/max-call-depth.module';
+import { IdempotentModule } from './common/idempotent.module';
+import { BullCorrelationModule } from './common/bull/bull-correlation.module';
 
 import { AuthModule } from './auth/auth.module';
 import { AnalyticsModule } from './analytics/analytics.module';
@@ -91,7 +93,7 @@ import { RiskControlsModule } from './risk-controls/risk-controls.module';
 import { WalletModule } from './wallet/wallet.module';
 import { FreighterModule } from './freighter/freighter.module';
 import { WatchlistModule } from './watchlist/watchlist.module';
-import { SettlementModule } from './settlement/settlement.module';
+import { PrivacyModule } from './privacy/privacy.module';
 
 @Module({
   imports: [
@@ -216,6 +218,8 @@ import { SettlementModule } from './settlement/settlement.module';
     SentryModule,
     ErrorClassificationModule,
     MaxCallDepthModule,
+    IdempotentModule,
+    BullCorrelationModule,
     UsersModule,
     SignalsModule,
     TradesModule,
@@ -281,7 +285,7 @@ import { SettlementModule } from './settlement/settlement.module';
     WalletModule,
     FreighterModule,
     HorizonBulkheadModule,
-    SettlementModule,
+    PrivacyModule,
   ],
   providers: [StellarConfigService, RateLimitMiddleware],
   exports: [StellarConfigService],
