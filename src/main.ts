@@ -15,6 +15,7 @@ import {
   SensitiveDataInterceptor,
   ResponseEnvelopeInterceptor,
   StellarMemoInterceptor,
+  StripInternalFieldsInterceptor,
 } from './common/interceptors';
 import { LoggerService } from './common/logger';
 import { CorrelationIdStore } from './common/correlation/correlation-id.store';
@@ -136,6 +137,7 @@ async function bootstrap() {
     new LoggingInterceptor(logger, app.get(CorrelationIdStore), configService),
   );
   app.useGlobalInterceptors(new ResponseEnvelopeInterceptor(app.get(Reflector)));
+  app.useGlobalInterceptors(new StripInternalFieldsInterceptor());
   app.useGlobalInterceptors(new SensitiveDataInterceptor());
   app.useGlobalInterceptors(new StellarMemoInterceptor(app.get(Reflector)));
   app.useGlobalInterceptors(app.get(MetricsInterceptor));
