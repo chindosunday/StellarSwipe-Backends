@@ -1,7 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException, TooManyRequestsException } from '@nestjs/common';
 import { SignalsService } from './signals.service';
+import { CacheService } from '../cache/cache.service';
+import { SignalQuotaService } from './quota/signal-quota.service';
 import { Signal } from './entities/signal.entity';
 import { SignalType, SignalStatus } from './entities/signal.entity';
 import { createMockRepository } from '../../test/utils/test-helpers';
@@ -12,17 +14,15 @@ import { SignalQuotaService } from './quota/signal-quota.service';
 describe('SignalsService', () => {
   let service: SignalsService;
   let mockRepository: any;
-  let mockCacheService: any;
-  let mockQuotaService: any;
+  let quotaService: { checkAndConsume: jest.Mock };
+  let cacheService: { getOrSetWithLock: jest.Mock; del: jest.Mock };
 
   beforeEach(async () => {
     mockRepository = createMockRepository();
-    mockCacheService = {
-      getOrSetWithLock: jest.fn(),
-      del: jest.fn().mockResolvedValue(undefined),
-    };
-    mockQuotaService = {
-      checkAndConsume: jest.fn().mockResolvedValue(undefined),
+    quotaService = { checkAndConsume: jest.fn().mockResolvedValue({}) };
+    cacheService = {
+      getOrSetWithLock: jest.fn((_key, fetchFn) => fetchFn()),
+      del: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -32,14 +32,8 @@ describe('SignalsService', () => {
           provide: getRepositoryToken(Signal),
           useValue: mockRepository,
         },
-        {
-          provide: CacheService,
-          useValue: mockCacheService,
-        },
-        {
-          provide: SignalQuotaService,
-          useValue: mockQuotaService,
-        },
+        { provide: CacheService, useValue: cacheService },
+        { provide: SignalQuotaService, useValue: quotaService },
       ],
     }).compile();
 
@@ -70,6 +64,26 @@ describe('SignalsService', () => {
       expect(mockRepository.save).toHaveBeenCalled();
     });
 
+
+    it('checks quota before saving a signal', async () => {
+      const dto = createSignalDtoFactory({ providerId: 'user-123', tier: 'basic' });
+      const expectedSignal = signalFactory(dto);
+
+      mockRepository.create.mockReturnValue(expectedSignal);
+      mockRepository.save.mockResolvedValue(expectedSignal);
+
+      await service.create(dto);
+
+      expect(quotaService.checkAndConsume).toHaveBeenCalledWith('user-123', 'basic', false);
+    });
+
+    it('surfaces quota exhaustion as too many requests', async () => {
+      const dto = createSignalDtoFactory({ providerId: 'user-123' });
+      quotaService.checkAndConsume.mockRejectedValue(new TooManyRequestsException('quota'));
+
+      await expect(service.create(dto)).rejects.toBeInstanceOf(TooManyRequestsException);
+      expect(mockRepository.save).not.toHaveBeenCalled();
+    });
     it('should throw error when providerId is missing', async () => {
       const dto = createSignalDtoFactory({ providerId: undefined });
 

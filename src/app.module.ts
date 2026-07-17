@@ -54,6 +54,7 @@ import { KycModule } from './kyc/kyc.module';
 import { ProductAnalyticsModule } from './analytics/product-analytics.module';
 import { BackupModule } from './backup/backup.module';
 import { AdminAnalyticsModule } from './admin/analytics/admin-analytics.module';
+import { AdminModule } from './admin/admin.module';
 import { MonitoringModule } from './monitoring/monitoring.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { DrModule } from './disaster-recovery/dr.module';
@@ -249,6 +250,7 @@ import { PrivacyModule } from './privacy/privacy.module';
     ProductAnalyticsModule,
     BackupModule,
     AdminAnalyticsModule,
+    AdminModule,
     MetadataExtractorService,
     NPlus1DetectionInterceptor,
     MarketIntelligenceModule,
