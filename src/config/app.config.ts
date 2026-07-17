@@ -16,7 +16,7 @@ export const appConfig = registerAs(
     logDirectory: process.env.LOG_DIRECTORY || './logs',
     logMaxFiles: process.env.LOG_MAX_FILES || '14d',
     logMaxSize: process.env.LOG_MAX_SIZE || '20m',
-    corsOrigin: process.env.CORS_ORIGIN?.split(',') || [
+    corsOrigin: (process.env.CORS_ALLOWED_ORIGINS || process.env.CORS_ORIGIN)?.split(',') || [
       'http://localhost:3000',
     ],
     corsCredentials: process.env.CORS_CREDENTIALS !== 'false',
