@@ -20,11 +20,17 @@ import { buildPaginationLinks } from '../common/pagination/pagination-links.util
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OwnershipGuard } from '../common/guards/ownership.guard';
 import { MaxCallDepthGuard } from '../common/guards/max-call-depth.guard';
+import { RequireIdempotencyKeyGuard } from '../common/guards/require-idempotency-key.guard';
 import { CheckOwnership } from '../common/decorators/check-ownership.decorator';
 import { Trade } from './entities/trade.entity';
 import { IdempotencyInterceptor } from '../common/interceptors/idempotency.interceptor';
-import { RateLimit, RateLimitTier } from '../common/decorators/rate-limit.decorator';
+import {
+  RateLimit,
+  RateLimitTier,
+} from '../common/decorators/rate-limit.decorator';
 import { MaxCallDepth } from '../common/decorators/max-call-depth.decorator';
+import { RequireScopes } from '../api-keys/decorators/require-scopes.decorator';
+import { ApiKeyScope } from '../api-keys/enums/api-key-scope.enum';
 import {
   ExecuteTradeCommand,
   CancelTradeCommand,
@@ -59,18 +65,36 @@ export class TradesController {
     private readonly tradeOutcomeService: TradeOutcomeService,
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
-  ) { }
+  ) {}
 
-/**
+  /**
    * Execute a new trade (swipe right action)
    * POST /trades/execute
+   *
+   * Requires Idempotency-Key header to prevent duplicate trade execution.
+   * Returns 400 when the header is absent, 409 when a concurrent duplicate arrives.
+   * Requires trades:write scope for API key authenticated requests.
+   *
+   * Issue #861 — mandatory idempotency key
+   * Issue #860 — scope validation
    */
   @Post('execute')
   @HttpCode(HttpStatus.CREATED)
   @RateLimit({ tier: RateLimitTier.TRADE })
-  @UseGuards(MaxCallDepthGuard)
-  @MaxCallDepth({ maxDepth: 5, endpoint: 'execute-trade', onViolation: 'reject' })
+  @UseGuards(MaxCallDepthGuard, RequireIdempotencyKeyGuard)
+  @MaxCallDepth({
+    maxDepth: 5,
+    endpoint: 'execute-trade',
+    onViolation: 'reject',
+  })
+  @RequireScopes(ApiKeyScope.TRADES_WRITE)
   @ApiResponse({ status: 201, description: 'Trade execution started' })
+  @ApiResponse({ status: 400, description: 'Missing Idempotency-Key header' })
+  @ApiResponse({
+    status: 403,
+    description: 'API key missing trades:write scope',
+  })
+  @ApiResponse({ status: 409, description: 'Concurrent duplicate request' })
   @ApiResponse({ status: 422, description: 'Slippage tolerance exceeded' })
   async executeTrade(@Body() dto: ExecuteTradeDto): Promise<TradeResultDto> {
     return this.commandBus.execute(new ExecuteTradeCommand(dto));
@@ -83,7 +107,10 @@ export class TradesController {
   @Post('validate')
   @HttpCode(HttpStatus.OK)
   @RateLimit({ tier: RateLimitTier.TRADE })
-  async validateTrade(@Body() dto: ExecuteTradeDto): Promise<TradeValidationResultDto> {
+  @RequireScopes(ApiKeyScope.TRADES_WRITE)
+  async validateTrade(
+    @Body() dto: ExecuteTradeDto,
+  ): Promise<TradeValidationResultDto> {
     return this.tradesService.validateTradePreview(dto);
   }
 
@@ -96,6 +123,7 @@ export class TradesController {
   @RateLimit({ tier: RateLimitTier.TRADE })
   @UseGuards(MaxCallDepthGuard)
   @MaxCallDepth({ maxDepth: 3, endpoint: 'close-trade', onViolation: 'reject' })
+  @RequireScopes(ApiKeyScope.TRADES_WRITE)
   async closeTrade(@Body() dto: CloseTradeDto): Promise<CloseTradeResultDto> {
     return this.commandBus.execute(new CancelTradeCommand(dto));
   }
@@ -107,6 +135,7 @@ export class TradesController {
   @Post('partial-close')
   @HttpCode(HttpStatus.OK)
   @RateLimit({ tier: RateLimitTier.TRADE })
+  @RequireScopes(ApiKeyScope.TRADES_WRITE)
   async partialClose(@Body() dto: PartialCloseDto): Promise<any> {
     return this.partialCloseService.closePartial(dto);
   }
@@ -118,6 +147,7 @@ export class TradesController {
   @Get(':tradeId')
   @UseGuards(JwtAuthGuard, OwnershipGuard)
   @CheckOwnership('tradeId', Trade)
+  @RequireScopes(ApiKeyScope.TRADES_READ)
   async getTradeById(
     @Param('tradeId', ParseUUIDPipe) tradeId: string,
     @Request() req: any,
@@ -131,6 +161,7 @@ export class TradesController {
    * GET /trades/user/:userId/history
    */
   @Get('user/:userId/history')
+  @RequireScopes(ApiKeyScope.TRADES_READ)
   async getUserTradeHistory(
     @Param('userId', ParseUUIDPipe) userId: string,
     @Query('status') status?: string,
@@ -139,7 +170,11 @@ export class TradesController {
     @Query('limit') limit?: number,
     @Query('offset') offset?: number,
     @Request() req?: any,
-  ): Promise<PaginatedTradeHistoryDto & { links?: ReturnType<typeof buildPaginationLinks> }> {
+  ): Promise<
+    PaginatedTradeHistoryDto & {
+      links?: ReturnType<typeof buildPaginationLinks>;
+    }
+  > {
     const resolvedLimit = Number(limit) || 20;
     const resolvedOffset = Number(offset) || 0;
 
@@ -156,7 +191,11 @@ export class TradesController {
     const currentPage = Math.floor(resolvedOffset / resolvedLimit) + 1;
 
     const links = req
-      ? buildPaginationLinks(req.url, { page: currentPage, limit: resolvedLimit, totalPages })
+      ? buildPaginationLinks(req.url, {
+          page: currentPage,
+          limit: resolvedLimit,
+          totalPages,
+        })
       : undefined;
 
     return { ...result, links };
@@ -167,6 +206,7 @@ export class TradesController {
    * GET /trades/user/:userId
    */
   @Get('user/:userId')
+  @RequireScopes(ApiKeyScope.TRADES_READ)
   async getUserTrades(
     @Param('userId', ParseUUIDPipe) userId: string,
     @Query('status') status?: string,
@@ -186,6 +226,7 @@ export class TradesController {
    * GET /trades/user/:userId/summary
    */
   @Get('user/:userId/summary')
+  @RequireScopes(ApiKeyScope.TRADES_READ)
   async getUserTradesSummary(
     @Param('userId', ParseUUIDPipe) userId: string,
   ): Promise<UserTradesSummaryDto> {
@@ -197,6 +238,7 @@ export class TradesController {
    * GET /trades/user/:userId/positions
    */
   @Get('user/:userId/positions')
+  @RequireScopes(ApiKeyScope.TRADES_READ)
   async getOpenPositions(
     @Param('userId', ParseUUIDPipe) userId: string,
   ): Promise<TradeDetailsDto[]> {
@@ -208,6 +250,7 @@ export class TradesController {
    * GET /trades/signal/:signalId
    */
   @Get('signal/:signalId')
+  @RequireScopes(ApiKeyScope.TRADES_READ)
   async getTradesBySignal(
     @Param('signalId', ParseUUIDPipe) signalId: string,
   ): Promise<TradeDetailsDto[]> {
@@ -230,6 +273,7 @@ export class TradesController {
   @Get(':tradeId/outcome')
   @UseGuards(JwtAuthGuard, OwnershipGuard)
   @CheckOwnership('tradeId', Trade)
+  @RequireScopes(ApiKeyScope.TRADES_READ)
   getOutcome(
     @Param('tradeId', ParseUUIDPipe) tradeId: string,
     @Request() req: any,
@@ -243,6 +287,7 @@ export class TradesController {
    */
   @Get('outcomes')
   @UseGuards(JwtAuthGuard)
+  @RequireScopes(ApiKeyScope.TRADES_READ)
   queryOutcomes(@Query() query: TradeOutcomeQueryDto, @Request() req: any) {
     return this.tradeOutcomeService.queryOutcomes(query, req.user.id);
   }
@@ -256,6 +301,7 @@ export class TradesController {
   @RateLimit({ tier: RateLimitTier.AUTHENTICATED, limit: 5, window: 3600 })
   @Header('Content-Type', 'text/csv')
   @Header('Content-Disposition', 'attachment; filename="trade-history.csv"')
+  @RequireScopes(ApiKeyScope.TRADES_READ)
   exportCsv(
     @Request() req: any,
     @Query('startDate') startDate?: string,
