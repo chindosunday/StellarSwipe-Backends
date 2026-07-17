@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Signal, SignalStatus, SignalType } from './entities/signal.entity';
@@ -75,9 +75,18 @@ export class SignalsService {
     );
   }
 
-  async updateSignalStatus(id: string, status: SignalStatus): Promise<Signal | null> {
-    await this.signalRepository.update(id, { status });
-    // Invalidate stale cache entries on write
+  async updateSignalStatus(id: string, status: SignalStatus, currentVersion?: number): Promise<Signal | null> {
+    if (currentVersion !== undefined) {
+      const result = await this.signalRepository.update(
+        { id, version: currentVersion },
+        { status, version: currentVersion + 1 },
+      );
+      if (result.affected === 0) {
+        throw new ConflictException('Signal was updated by another request. Please retry with the latest version.');
+      }
+    } else {
+      await this.signalRepository.update(id, { status });
+    }
     await Promise.all([
       this.cacheService.del(`${CachePrefix.SIGNAL}${id}`),
       this.cacheService.del(SignalsService.FEED_KEY),
