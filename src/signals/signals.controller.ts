@@ -10,6 +10,7 @@ import {
   ParseUUIDPipe,
   NotFoundException,
   BadRequestException,
+  HttpException,
   UseGuards,
   Request,
   Req,
@@ -36,6 +37,10 @@ export class SignalsController {
     try {
       return await this.signalsService.create(body);
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       const lang = req['language'] || 'en';
       let errorMessage = 'Trade execution failed';
 
