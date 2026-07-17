@@ -8,6 +8,7 @@ import { Signal } from '../signals/entities/signal.entity';
 import { AuditLog } from '../audit-log/audit-log.entity';
 import { AdminAnalyticsModule } from './analytics/admin-analytics.module';
 import { PermissionAuditService, PermissionAuditLog } from '../auth/permission-audit.service';
+import { TracingModule } from '../tracing/tracing.module';
 
 @Module({
     imports: [
@@ -18,6 +19,7 @@ import { PermissionAuditService, PermissionAuditLog } from '../auth/permission-a
             PermissionAuditLog,
         ]),
         AdminAnalyticsModule,
+        TracingModule,
     ],
     controllers: [AdminController, AdminAuditController],
     providers: [AdminManagementService, PermissionAuditService],

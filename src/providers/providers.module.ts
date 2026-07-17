@@ -22,9 +22,14 @@ import { ProviderEarning } from '../provider-rewards/provider-earning.entity';
 import { User } from '../users/entities/user.entity';
 import { UserProviderMute } from './entities/user-provider-mute.entity';
 import { ProviderMuteService } from './mute/provider-mute.service';
+import { ReputationSyncJob } from './jobs/reputation-sync.job';
+import { SorobanModule } from '../soroban/soroban.module';
+import { AlertsModule } from '../monitoring/alerts/alerts.module';
 
 @Module({
   imports: [
+    SorobanModule,
+    AlertsModule,
     TypeOrmModule.forFeature([
       RevenueShareTier,
       ProviderRevenuePayout,
@@ -43,12 +48,14 @@ import { ProviderMuteService } from './mute/provider-mute.service';
     TierManagerService,
     ProviderAnalyticsService,
     ProviderHealthScoreService,
+    ReputationSyncJob,
   ],
   exports: [
     RevenueShareService,
     TierManagerService,
     ProviderAnalyticsService,
     ProviderHealthScoreService,
+    ReputationSyncJob,
   ],
 })
 export class ProvidersModule {}
