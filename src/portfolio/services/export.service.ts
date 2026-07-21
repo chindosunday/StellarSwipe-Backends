@@ -80,7 +80,7 @@ export class ExportService {
         }
 
         if (total > this.SYNC_THRESHOLD) {
-            await this.exportQueue.add('generate-export', { userId, query, where });
+            await this.exportQueue.add('generate-export', { userId, query, where }, { priority: 100 }); // NORMAL
             return { status: 'processing', message: 'Large export started. You will receive an email with the download link shortly.' };
         }
 

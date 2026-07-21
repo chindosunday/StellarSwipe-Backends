@@ -9,6 +9,7 @@ import { AuditLog } from '../audit-log/audit-log.entity';
 import { AdminAnalyticsModule } from './analytics/admin-analytics.module';
 import { PermissionAuditService, PermissionAuditLog } from '../auth/permission-audit.service';
 import { TracingModule } from '../tracing/tracing.module';
+import { QueueModule } from '../queue/queue.module';
 
 @Module({
     imports: [
@@ -20,6 +21,7 @@ import { TracingModule } from '../tracing/tracing.module';
         ]),
         AdminAnalyticsModule,
         TracingModule,
+        QueueModule,
     ],
     controllers: [AdminController, AdminAuditController],
     providers: [AdminManagementService, PermissionAuditService],
