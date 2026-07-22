@@ -79,6 +79,7 @@
     "bcrypt": "^6.0.0",
     "big.js": "^7.0.1",
     "bull": "^4.16.5",
+    "bullmq": "^5.80.10",
     "cache-manager": "^7.2.8",
     "cache-manager-redis-store": "^3.0.1",
     "cache-manager-redis-yet": "^5.1.5",

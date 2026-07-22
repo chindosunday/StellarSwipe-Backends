@@ -10,7 +10,10 @@ import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { Webhook, SUPPORTED_WEBHOOK_EVENTS } from './entities/webhook.entity';
 import { WebhookDelivery } from './entities/webhook-delivery.entity';
-import { RegisterWebhookDto, UpdateWebhookDto } from './dto/register-webhook.dto';
+import {
+  RegisterWebhookDto,
+  UpdateWebhookDto,
+} from './dto/register-webhook.dto';
 import { WebhookPayload } from './dto/webhook-event.dto';
 import { SignatureGeneratorService } from './services/signature-generator.service';
 import { WebhookSenderService } from './services/webhook-sender.service';
@@ -64,7 +67,11 @@ export class WebhooksService {
     return webhook;
   }
 
-  async update(userId: string, id: string, dto: UpdateWebhookDto): Promise<Webhook> {
+  async update(
+    userId: string,
+    id: string,
+    dto: UpdateWebhookDto,
+  ): Promise<Webhook> {
     const webhook = await this.findOne(userId, id);
 
     if (dto.events) {
@@ -114,7 +121,8 @@ export class WebhooksService {
       relations: ['webhook'],
     });
 
-    if (!delivery) throw new NotFoundException(`Delivery not found: ${deliveryId}`);
+    if (!delivery)
+      throw new NotFoundException(`Delivery not found: ${deliveryId}`);
     if (delivery.webhook.userId !== userId) throw new ForbiddenException();
 
     await this.webhookSender.retryDelivery(deliveryId);
@@ -125,8 +133,11 @@ export class WebhooksService {
     deliveryId: string,
     subscriberWebhookId: string,
   ): Promise<void> {
-    const delivery = await this.deliveryRepo.findOne({ where: { id: deliveryId } });
-    if (!delivery) throw new NotFoundException(`Delivery not found: ${deliveryId}`);
+    const delivery = await this.deliveryRepo.findOne({
+      where: { id: deliveryId },
+    });
+    if (!delivery)
+      throw new NotFoundException(`Delivery not found: ${deliveryId}`);
 
     const webhook = await this.findOne(userId, subscriberWebhookId);
 
@@ -136,16 +147,6 @@ export class WebhooksService {
       isReplay: true,
       originalDeliveryId: deliveryId,
     };
-
-    const replayDelivery = this.deliveryRepo.create({
-      webhookId: webhook.id,
-      eventType: delivery.eventType,
-      eventId: `replay:${deliveryId}`,
-      payload: replayPayload,
-      status: 'pending',
-      attempts: 0,
-    });
-    await this.deliveryRepo.save(replayDelivery);
 
     await this.webhookSender.deliverWebhook(webhook, replayPayload);
   }
@@ -157,7 +158,9 @@ export class WebhooksService {
     const webhooks = await this.webhookRepo
       .createQueryBuilder('w')
       .where('w.active = true')
-      .andWhere(':event = ANY(string_to_array(w.events, \',\'))', { event: eventName })
+      .andWhere(":event = ANY(string_to_array(w.events, ','))", {
+        event: eventName,
+      })
       .getMany();
 
     if (webhooks.length === 0) return;
@@ -175,7 +178,10 @@ export class WebhooksService {
 
     await Promise.allSettled(
       webhooks.map((webhook) =>
-        this.webhookSender.deliverWebhook(webhook, { ...payload, deliveryId: uuidv4() }),
+        this.webhookSender.deliverWebhook(webhook, {
+          ...payload,
+          deliveryId: uuidv4(),
+        }),
       ),
     );
   }
@@ -191,11 +197,16 @@ export class WebhooksService {
     webhook.rotationStartedAt = new Date();
     webhook.rotationFinalizesAt = new Date(Date.now() + rotationWindowMs);
 
-    this.logger.log(`Initiated secret rotation for webhook ${webhookId}, window: ${rotationWindowMs}ms`);
+    this.logger.log(
+      `Initiated secret rotation for webhook ${webhookId}, window: ${rotationWindowMs}ms`,
+    );
     return this.webhookRepo.save(webhook);
   }
 
-  async finalizeSecretRotation(userId: string, webhookId: string): Promise<Webhook> {
+  async finalizeSecretRotation(
+    userId: string,
+    webhookId: string,
+  ): Promise<Webhook> {
     const webhook = await this.findOne(userId, webhookId);
 
     if (!webhook.nextSecret) {
