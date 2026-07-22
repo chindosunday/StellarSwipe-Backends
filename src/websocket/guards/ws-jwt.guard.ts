@@ -35,11 +35,12 @@ export class WsJwtGuard implements CanActivate {
       throw new UnauthorizedException('Invalid or expired token');
     }
 
-    if (!payload?.sub) {
+    const subject = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
+    if (!subject) {
       throw new UnauthorizedException('Invalid token payload');
     }
 
-    const user: WsAuthenticatedUser = { ...payload, sub: payload.sub };
+    const user: WsAuthenticatedUser = { ...payload, sub: subject };
     client.data = client.data ?? {};
     client.data.user = user;
     client.data.walletAddress = user.sub;
@@ -74,6 +75,9 @@ export class WsJwtGuard implements CanActivate {
   }
 
   private stripBearerPrefix(token: string): string {
-    return token.replace(/^Bearer\s+/i, '').trim();
+    return token
+      .trim()
+      .replace(/^Bearer(?:\s+|$)/i, '')
+      .trim();
   }
 }
