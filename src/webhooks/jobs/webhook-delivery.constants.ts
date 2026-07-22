@@ -47,7 +47,10 @@ export function calculateWebhookBackoffDelay(
   attempt: number,
   jitterMs = randomWebhookJitter(),
 ): number {
-  const normalizedAttempt = Math.max(1, Math.floor(attempt));
+  const flooredAttempt = Math.floor(attempt);
+  const normalizedAttempt = Number.isFinite(flooredAttempt)
+    ? Math.max(1, flooredAttempt)
+    : 1;
   const cappedExponentialDelay = Math.min(
     Math.pow(2, normalizedAttempt) * WEBHOOK_BACKOFF_BASE_MS,
     WEBHOOK_BACKOFF_CAP_MS,
